@@ -97,9 +97,14 @@ function show(id){
  document.getElementById(id).classList.remove('hide');
 }
 function connect(){
- let url=localStorage.getItem('mh_url');
+ let url='https://rljvqtrdqncyhfuvcwdi.supabase.co';
  let key=localStorage.getItem('mh_key');
- if(!url||!key){show('config');return false}
+
+ if(!key){
+   show('config');
+   return false;
+ }
+
  db=window.supabase.createClient(url,key);
  return true;
 }
