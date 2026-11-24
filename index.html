@@ -1,0 +1,171 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Material Hisaab</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f2f5f3;color:#182720;font-family:Arial,sans-serif}
+header{background:#123b32;color:white;padding:25px 18px;border-radius:0 0 22px 22px}
+header h1{margin:8px 0 4px;font-size:26px}
+header p{margin:0;color:#d5e6dc;font-size:13px}
+main{max-width:650px;margin:auto;padding:18px}
+.card{background:white;padding:20px;border-radius:16px;margin-bottom:15px;box-shadow:0 3px 12px #00000008}
+h2{font-size:19px;margin:0 0 12px}
+label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}
+input{width:100%;padding:13px;border:1px solid #d5ded8;border-radius:9px;font-size:15px}
+button{padding:13px;border:0;border-radius:9px;background:#1e5b4b;color:white;font-weight:bold;font-size:14px;cursor:pointer}
+button.alt{background:#e8f0ec;color:#123b32}
+.actions{display:flex;gap:9px;margin-top:15px}
+.actions button{flex:1}
+.msg{font-size:13px;margin-top:12px;color:#246044;overflow-wrap:anywhere}
+.hide{display:none}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:white;border:1px solid #e0e8e3;padding:17px;border-radius:13px}
+.tile b{display:block;margin-bottom:5px}
+.tile small{color:#69766f}
+</style>
+</head>
+<body>
+<header>
+<div>RANA FAIZAN BROTHERS</div>
+<h1>Material Hisaab</h1>
+<p>Building Material Supplier Management</p>
+</header>
+<main>
+
+<section id="config" class="card hide">
+<h2>Connect Database</h2>
+<label>Supabase Project URL</label>
+<input id="url" placeholder="https://yourproject.supabase.co">
+<label>Supabase Publishable Key</label>
+<input id="key" placeholder="sb_publishable_...">
+<div class="actions"><button onclick="saveConfig()">Connect</button></div>
+<div id="configMsg" class="msg"></div>
+</section>
+
+<section id="auth" class="card hide">
+<h2>Welcome to Material Hisaab</h2>
+<label>Email</label>
+<input id="email" type="email" placeholder="Your email">
+<label>Password</label>
+<input id="password" type="password" placeholder="Password (minimum 6 characters)">
+<div class="actions">
+<button onclick="login()">Login</button>
+<button class="alt" onclick="signup()">Create Account</button>
+</div>
+<div id="authMsg" class="msg"></div>
+</section>
+
+<section id="business" class="card hide">
+<h2>Business Registration</h2>
+<label>Business Name</label>
+<input id="businessName" value="Rana Faizan Brothers Building Material Supplier">
+<label>Owner Name</label>
+<input id="ownerName" placeholder="Owner name">
+<label>Phone</label>
+<input id="phone" placeholder="03XXXXXXXXX">
+<div class="actions"><button onclick="createBusiness()">Save Business</button></div>
+<div id="businessMsg" class="msg"></div>
+</section>
+
+<section id="home" class="hide">
+<div class="card">
+<h2 id="welcome">Material Hisaab</h2>
+<p>Your business dashboard</p>
+<button class="alt" onclick="logout()">Logout</button>
+</div>
+<div class="grid">
+<div class="tile"><b>Customers</b><small>Customer ledger</small></div>
+<div class="tile"><b>Suppliers</b><small>Supplier ledger</small></div>
+<div class="tile"><b>Products & Stock</b><small>Inventory management</small></div>
+<div class="tile"><b>Bills & Orders</b><small>Sales and pending orders</small></div>
+<div class="tile"><b>Payments</b><small>Cash received and paid</small></div>
+<div class="tile"><b>Reports</b><small>Business reports</small></div>
+</div>
+</section>
+</main>
+
+<script>
+let db=null,user=null;
+
+function show(id){
+ document.querySelectorAll('main section').forEach(x=>x.classList.add('hide'));
+ document.getElementById(id).classList.remove('hide');
+}
+function connect(){
+ let url=localStorage.getItem('mh_url');
+ let key=localStorage.getItem('mh_key');
+ if(!url||!key){show('config');return false}
+ db=window.supabase.createClient(url,key);
+ return true;
+}
+function saveConfig(){
+ let url=document.getElementById('url').value.trim();
+ let key=document.getElementById('key').value.trim();
+ if(!url.startsWith('https://')||!key){
+  document.getElementById('configMsg').textContent='URL aur Publishable Key check karein.';
+  return;
+ }
+ localStorage.setItem('mh_url',url);
+ localStorage.setItem('mh_key',key);
+ location.reload();
+}
+async function start(){
+ if(!connect())return;
+ let {data,error}=await db.auth.getSession();
+ if(error){show('auth');return}
+ if(data.session){user=data.session.user;await route()}
+ else show('auth');
+ db.auth.onAuthStateChange(async(event,session)=>{
+  if(session){user=session.user;await route()}
+  else show('auth');
+ });
+}
+async function login(){
+ let email=document.getElementById('email').value.trim();
+ let password=document.getElementById('password').value;
+ let {error}=await db.auth.signInWithPassword({email,password});
+ document.getElementById('authMsg').textContent=error?error.message:'Login successful';
+}
+async function signup(){
+ let email=document.getElementById('email').value.trim();
+ let password=document.getElementById('password').value;
+ if(password.length<6){document.getElementById('authMsg').textContent='Password kam az kam 6 characters ka ho.';return}
+ let {data,error}=await db.auth.signUp({email,password});
+ if(error){document.getElementById('authMsg').textContent=error.message;return}
+ if(data.session){user=data.user;await route()}
+ else document.getElementById('authMsg').textContent='Email confirmation check karein, phir login karein.';
+}
+async function route(){
+ show('home');
+ let {data:profile,error}=await db.from('profiles').select('business_id').eq('id',user.id).maybeSingle();
+ if(error){show('business');document.getElementById('businessMsg').textContent=error.message;return}
+ if(!profile||!profile.business_id){show('business');return}
+ let {data:biz,error:be}=await db.from('businesses').select('name').eq('id',profile.business_id).single();
+ if(be){show('business');document.getElementById('businessMsg').textContent=be.message;return}
+ document.getElementById('welcome').textContent=biz.name;
+}
+async function createBusiness(){
+ let name=document.getElementById('businessName').value.trim();
+ let owner=document.getElementById('ownerName').value.trim();
+ let phone=document.getElementById('phone').value.trim();
+ if(!name){document.getElementById('businessMsg').textContent='Business name required';return}
+ let {data:biz,error}=await db.from('businesses').insert({
+  name,owner_name:owner,phone,owner_id:user.id
+ }).select('id').single();
+ if(error){document.getElementById('businessMsg').textContent=error.message;return}
+ let {error:pe}=await db.from('profiles').insert({
+  id:user.id,business_id:biz.id,full_name:owner
+ });
+ if(pe){document.getElementById('businessMsg').textContent=pe.message;return}
+ await route();
+}
+async function logout(){await db.auth.signOut()}
+start();
+</script>
+</body>
+</html>
